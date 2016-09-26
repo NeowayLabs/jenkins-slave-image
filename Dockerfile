@@ -1,5 +1,5 @@
 # This Dockerfile is used to build an image containing basic stuff to be used as a Jenkins slave build node.
-FROM ubuntu:trusty
+FROM ubuntu:latest
 MAINTAINER Neoway Techteams <techteams@neoway.com.br>
 
 # Add locales after locale-gen as needed
