@@ -21,7 +21,7 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
 # install git
-RUN apt-get -y install git
+RUN apt-get -y update && apt-get -y install git
 
 # Install Java.
 # auto validate license
