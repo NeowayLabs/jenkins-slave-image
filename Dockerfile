@@ -12,10 +12,16 @@ ENV JAVA_VERSION_MAJOR=8 \
     GLIBC_VERSION=2.23-r3 \
     LANG=C.UTF-8 \
     MAVEN_VERSION="3.3.9" \
-    M2_HOME=/usr/lib/mvn
+    M2_HOME=/usr/lib/mvn \
+    HOME=/home/jenkins
 
 RUN apk upgrade --update && \
-    apk add --update libstdc++ curl ca-certificates bash git openssh && \
+    apk add --update libstdc++ curl ca-certificates bash git && \
+    addgroup -g 10000 jenkins && \
+    adduser -h $HOME -u 10000 -G jenkins -s /bin/bash -D jenkins && \
+    curl --create-dirs -sSLo /usr/share/jenkins/slave.jar http://repo.jenkins-ci.org/public/org/jenkins-ci/main/remoting/2.62/remoting-2.62.jar && \
+    chmod 755 /usr/share/jenkins && \
+    chmod 644 /usr/share/jenkins/slave.jar && \
     for pkg in glibc-${GLIBC_VERSION} glibc-bin-${GLIBC_VERSION} glibc-i18n-${GLIBC_VERSION}; do curl -sSL https://github.com/andyshinn/alpine-pkg-glibc/releases/download/${GLIBC_VERSION}/${pkg}.apk -o /tmp/${pkg}.apk; done && \
     apk add --allow-untrusted /tmp/*.apk && \
     rm -v /tmp/*.apk && \
@@ -75,11 +81,9 @@ RUN apk upgrade --update && \
            /tmp/* /var/cache/apk/* && \
     echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' >> /etc/nsswitch.conf
 
-COPY entry.sh /entry.sh
-RUN chmod +x /entry.sh
+COPY jenkins-slave /usr/local/bin/jenkins-slave
+RUN chmod +x /usr/local/bin/jenkins-slave
 
-ENTRYPOINT ["/entry.sh"]
+USER jenkins
 
-EXPOSE 22
-
-CMD ["/usr/sbin/sshd","-D"]
+ENTRYPOINT ["jenkins-slave"]
