@@ -1,70 +1,89 @@
-# This Dockerfile is used to build an image containing basic stuff to be used as a Jenkins slave build node.
-FROM ubuntu:latest
+FROM alpine:latest
+
 MAINTAINER Neoway Techteams <techteams@neoway.com.br>
 
-# this is a non-interactive automated build - avoid some warning messages
-ENV DEBIAN_FRONTEND noninteractive
+ENV JAVA_VERSION_MAJOR=8 \
+    JAVA_VERSION_MINOR=102 \
+    JAVA_VERSION_BUILD=14 \
+    JAVA_PACKAGE=jdk \
+    JAVA_JCE=standard \
+    JAVA_HOME=/opt/jdk \
+    PATH=${PATH}:/opt/jdk/bin \
+    GLIBC_VERSION=2.23-r3 \
+    LANG=C.UTF-8 \
+    MAVEN_VERSION="3.3.9" \
+    M2_HOME=/usr/lib/mvn \
+    HOME=/home/jenkins
 
-# Add locales after locale-gen as needed
-# Upgrade packages on image
-# Preparations for sshd
-run locale-gen en_US.UTF-8 &&\
-    apt-get -q update &&\
-    apt-get -q upgrade -y -o Dpkg::Options::="--force-confnew" --no-install-recommends &&\
-    apt-get -q install -y -o Dpkg::Options::="--force-confnew"  --no-install-recommends openssh-server &&\
-    apt-get -q autoremove &&\
-    apt-get -q clean -y && rm -rf /var/lib/apt/lists/* && rm -f /var/cache/apt/*.bin &&\
-    sed -i 's|session    required     pam_loginuid.so|session    optional     pam_loginuid.so|g' /etc/pam.d/sshd &&\
-    mkdir -p /var/run/sshd
+RUN apk upgrade --update && \
+    apk add --update libstdc++ curl ca-certificates bash git && \
+    addgroup -g 10000 jenkins && \
+    adduser -h $HOME -u 10000 -G jenkins -s /bin/bash -D jenkins && \
+    curl --create-dirs -sSLo /usr/share/jenkins/slave.jar http://repo.jenkins-ci.org/public/org/jenkins-ci/main/remoting/2.62/remoting-2.62.jar && \
+    chmod 755 /usr/share/jenkins && \
+    chmod 644 /usr/share/jenkins/slave.jar && \
+    for pkg in glibc-${GLIBC_VERSION} glibc-bin-${GLIBC_VERSION} glibc-i18n-${GLIBC_VERSION}; do curl -sSL https://github.com/andyshinn/alpine-pkg-glibc/releases/download/${GLIBC_VERSION}/${pkg}.apk -o /tmp/${pkg}.apk; done && \
+    apk add --allow-untrusted /tmp/*.apk && \
+    rm -v /tmp/*.apk && \
+    ( /usr/glibc-compat/bin/localedef --force --inputfile POSIX --charmap UTF-8 C.UTF-8 || true ) && \
+    echo "export LANG=C.UTF-8" > /etc/profile.d/locale.sh && \
+    /usr/glibc-compat/sbin/ldconfig /lib /usr/glibc-compat/lib && \
+    mkdir /opt && \
+    curl -jksSLH "Cookie: oraclelicense=accept-securebackup-cookie" -o /tmp/java.tar.gz \
+      http://download.oracle.com/otn-pub/java/jdk/${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-b${JAVA_VERSION_BUILD}/${JAVA_PACKAGE}-${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-linux-x64.tar.gz && \
+    gunzip /tmp/java.tar.gz && \
+    tar -C /opt -xf /tmp/java.tar && \
+    ln -s /opt/jdk1.${JAVA_VERSION_MAJOR}.0_${JAVA_VERSION_MINOR} /opt/jdk && \
+    if [ "${JAVA_JCE}" == "unlimited" ]; then echo "Installing Unlimited JCE policy" >&2 && \
+      curl -jksSLH "Cookie: oraclelicense=accept-securebackup-cookie" -o /tmp/jce_policy-${JAVA_VERSION_MAJOR}.zip \
+        http://download.oracle.com/otn-pub/java/jce/${JAVA_VERSION_MAJOR}/jce_policy-${JAVA_VERSION_MAJOR}.zip && \
+      cd /tmp && unzip /tmp/jce_policy-${JAVA_VERSION_MAJOR}.zip && \
+      cp -v /tmp/UnlimitedJCEPolicyJDK8/*.jar /opt/jdk/jre/lib/security; \
+    fi && \
+    sed -i s/#networkaddress.cache.ttl=-1/networkaddress.cache.ttl=30/ $JAVA_HOME/jre/lib/security/java.security && \
+    cd /tmp && \
+    curl -o apache-maven-$MAVEN_VERSION-bin.tar.gz http://ftp.unicamp.br/pub/apache/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz && \
+    tar -zxvf "apache-maven-$MAVEN_VERSION-bin.tar.gz" && \
+    mv "apache-maven-$MAVEN_VERSION" "$M2_HOME" && \
+    ln -s "$M2_HOME/bin/mvn" /usr/bin/mvn && \
+    apk del curl glibc-i18n && \
+    rm -rf /opt/jdk/*src.zip \
+           /opt/jdk/lib/missioncontrol \
+           /opt/jdk/lib/visualvm \
+           /opt/jdk/lib/*javafx* \
+           /opt/jdk/jre/plugin \
+           /opt/jdk/jre/bin/javaws \
+           /opt/jdk/jre/bin/jjs \
+           /opt/jdk/jre/bin/orbd \
+           /opt/jdk/jre/bin/pack200 \
+           /opt/jdk/jre/bin/policytool \
+           /opt/jdk/jre/bin/rmid \
+           /opt/jdk/jre/bin/rmiregistry \
+           /opt/jdk/jre/bin/servertool \
+           /opt/jdk/jre/bin/tnameserv \
+           /opt/jdk/jre/bin/unpack200 \
+           /opt/jdk/jre/lib/javaws.jar \
+           /opt/jdk/jre/lib/deploy* \
+           /opt/jdk/jre/lib/desktop \
+           /opt/jdk/jre/lib/*javafx* \
+           /opt/jdk/jre/lib/*jfx* \
+           /opt/jdk/jre/lib/amd64/libdecora_sse.so \
+           /opt/jdk/jre/lib/amd64/libprism_*.so \
+           /opt/jdk/jre/lib/amd64/libfxplugins.so \
+           /opt/jdk/jre/lib/amd64/libglass.so \
+           /opt/jdk/jre/lib/amd64/libgstreamer-lite.so \
+           /opt/jdk/jre/lib/amd64/libjavafx*.so \
+           /opt/jdk/jre/lib/amd64/libjfx*.so \
+           /opt/jdk/jre/lib/ext/jfxrt.jar \
+           /opt/jdk/jre/lib/ext/nashorn.jar \
+           /opt/jdk/jre/lib/oblique-fonts \
+           /opt/jdk/jre/lib/plugin.jar \
+           /tmp/* /var/cache/apk/* && \
+    echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' >> /etc/nsswitch.conf
 
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
-ENV LC_ALL en_US.UTF-8
+COPY jenkins-slave /usr/local/bin/jenkins-slave
+RUN chmod +x /usr/local/bin/jenkins-slave
 
-# Install git
-RUN apt-get -y update && apt-get -y install git
+USER jenkins
 
-# Install Maven
-RUN apt-get -y update && apt-get install -y wget
-
-# download maven
-RUN wget --no-verbose -O /tmp/apache-maven-3.3.9.tar.gz http://archive.apache.org/dist/maven/maven-3/3.3.9/binaries/apache-maven-3.3.9-bin.tar.gz
-
-# verify checksum
-RUN echo "516923b3955b6035ba6b0a5b031fbd8b /tmp/apache-maven-3.3.9.tar.gz" | md5sum -c
-
-# install maven
-RUN tar xzf /tmp/apache-maven-3.3.9.tar.gz -C /opt/
-RUN ln -s /opt/apache-maven-3.3.9 /opt/maven
-RUN ln -s /opt/maven/bin/mvn /usr/local/bin
-RUN rm -f /tmp/apache-maven-3.3.9.tar.gz
-
-ENV MAVEN_HOME /opt/maven
-
-# Install Java
-# auto validate license
-RUN echo oracle-java8-installer shared/accepted-oracle-license-v1-1 select true | /usr/bin/debconf-set-selections
-
-# update repos
-RUN echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main" | tee /etc/apt/sources.list.d/webupd8team-java.list
-RUN echo "deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main" | tee -a /etc/apt/sources.list.d/webupd8team-java.list
-RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys EEA14886
-RUN apt-get update
-
-# install java
-RUN apt-get install oracle-java8-installer -y
-
-# define commonly used JAVA_HOME variable
-ENV JAVA_HOME /usr/lib/jvm/java-8-oracle
-
-RUN apt-get clean
-
-# Set user jenkins to the image
-RUN useradd -m -d /home/jenkins -s /bin/sh jenkins &&\
-    echo "jenkins:jenkins" | chpasswd
-
-# Standard SSH port
-EXPOSE 22
-
-# Default command
-CMD ["/usr/sbin/sshd", "-D"]
+ENTRYPOINT ["jenkins-slave"]
