@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+if [ $# -eq 1 ]; then
+
+        # if `docker run` only has one arguments, we assume user is running alternate command like `bash` to inspect the image
+        exec "$@"
+
+else
+
+        exec java -jar /usr/share/jenkins/slave.jar -jnlpUrl "http://$MASTER_IP:$MASTER_PORT/computer/$SLAVE_NAME/slave-agent.jnlp"
+
+fi
