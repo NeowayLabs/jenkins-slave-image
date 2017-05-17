@@ -13,7 +13,7 @@ ENV JAVA_VERSION_MAJOR=8 \
     LANG=C.UTF-8 \
     MAVEN_VERSION="3.3.9" \
     M2_HOME=/usr/lib/mvn \
-    JENKINS_REMOTE_VERSION="3.8" \
+    JENKINS_REMOTE_VERSION=3.8 \
     HOME=/home/jenkins
 
 RUN apk upgrade --update && \
