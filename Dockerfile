@@ -3,8 +3,8 @@ FROM alpine:latest
 MAINTAINER Neoway Techteams <techteams@neoway.com.br>
 
 ENV JAVA_VERSION_MAJOR=8 \
-    JAVA_VERSION_MINOR=131 \
-    JAVA_VERSION_BUILD=11 \
+    JAVA_VERSION_MINOR=102 \
+    JAVA_VERSION_BUILD=14 \
     JAVA_PACKAGE=jdk \
     JAVA_JCE=standard \
     JAVA_HOME=/opt/jdk \
