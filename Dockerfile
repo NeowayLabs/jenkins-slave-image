@@ -3,7 +3,7 @@ FROM alpine:latest
 MAINTAINER Neoway Techteams <techteams@neoway.com.br>
 
 ENV JAVA_VERSION_MAJOR=8 \
-    JAVA_VERSION_MINOR=121 \
+    JAVA_VERSION_MINOR=131 \
     JAVA_VERSION_BUILD=13 \
     JAVA_PACKAGE=jdk \
     JAVA_JCE=standard \
@@ -13,7 +13,7 @@ ENV JAVA_VERSION_MAJOR=8 \
     LANG=C.UTF-8 \
     MAVEN_VERSION="3.3.9" \
     M2_HOME=/usr/lib/mvn \
-    JENKINS_REMOTE_VERSION=3.8 \
+    JENKINS_REMOTE_VERSION="3.8" \
     HOME=/home/jenkins
 
 RUN apk upgrade --update && \
